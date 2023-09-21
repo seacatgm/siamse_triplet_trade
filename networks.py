@@ -2,19 +2,52 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+# class EmbeddingNet(nn.Module):
+#     def __init__(self):
+#         super(EmbeddingNet, self).__init__()
+#         self.convnet = nn.Sequential(nn.Conv2d(1, 32, 2), nn.PReLU(),
+#                                     #  nn.MaxPool2d(2, stride=2),
+#                                      nn.Conv2d(32, 64, 2), nn.PReLU())
+#                                     #  nn.MaxPool2d(2, stride=2))
+
+#         self.fc = nn.Sequential(nn.Linear(11136, 256),
+#                                 nn.PReLU(),
+#                                 nn.Linear(256, 256),
+#                                 nn.PReLU(),
+#                                 nn.Linear(256, 2)
+#                                 )
+
+#     def forward(self, x):
+#         output = self.convnet(x)
+#         output = output.view(output.size()[0], -1)
+#         output = self.fc(output)
+#         return output
+
+#     def get_embedding(self, x):
+#         return self.forward(x)
+
 class EmbeddingNet(nn.Module):
     def __init__(self):
         super(EmbeddingNet, self).__init__()
-        self.convnet = nn.Sequential(nn.Conv2d(1, 32, 2), nn.PReLU(),
+        self.convnet = nn.Sequential(nn.Conv2d(1, 32, 2, padding='same'),
+                                     nn.BatchNorm2d(32),
+                                     nn.PReLU(),
                                     #  nn.MaxPool2d(2, stride=2),
-                                     nn.Conv2d(32, 64, 2), nn.PReLU())
-                                    #  nn.MaxPool2d(2, stride=2))
+                                     nn.Conv2d(32, 64, 2, padding='same'),
+                                     nn.BatchNorm2d(64),
+                                     nn.PReLU(),
+                                     nn.MaxPool2d(2, stride=2))
 
-        self.fc = nn.Sequential(nn.Linear(11136, 256),
+        self.fc = nn.Sequential(nn.Linear(3840, 600),
+                                nn.BatchNorm1d(600),
                                 nn.PReLU(),
-                                nn.Linear(256, 256),
+                                nn.Linear(600, 400),
+                                nn.BatchNorm1d(400),
                                 nn.PReLU(),
-                                nn.Linear(256, 2)
+                                nn.Linear(400, 200),
+                                nn.BatchNorm1d(200),
+                                nn.PReLU(),
+                                nn.Linear(200, 2)
                                 )
 
     def forward(self, x):
@@ -25,6 +58,7 @@ class EmbeddingNet(nn.Module):
 
     def get_embedding(self, x):
         return self.forward(x)
+
 
 
 class EmbeddingNetL2(EmbeddingNet):
