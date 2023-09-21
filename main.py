@@ -17,7 +17,8 @@ from torchvision import transforms
 from torchvision.datasets import MNIST
 import os
 from sklearn.model_selection import train_test_split
-
+from sklearn.preprocessing import normalize
+from sklearn.preprocessing import StandardScaler
 from trainer import fit
 from datasets import SiameseMNIST, TripletMNIST, BalancedBatchSampler
 from metrics import AccumulatedAccuracyMetric, AverageNonzeroTripletsMetric
@@ -29,7 +30,7 @@ from utils import RandomNegativeTripletSelector  # Strategies for selecting trip
 from utils import set_all_seeds
 warnings.filterwarnings("ignore")
 
-set_all_seeds(29)
+set_all_seeds(42)
 
 buy_patterns_clusters = np.load('/siamese-triplet/data/buy_patterns_clusters.npy')
 buy_patterns = np.load('/siamese-triplet/data/buy_patterns.npy')
@@ -73,10 +74,16 @@ def extract_embeddings(dataloader, model):
             k += len(images)
     return embeddings, labels
 
-x = np.concatenate([buy_patterns, sell_patterns]).reshape(55, 1, 60, 5)
+x = np.concatenate([buy_patterns, sell_patterns])
 y = np.concatenate([buy_patterns_clusters, sell_patterns_clusters+2])
+
+scaler = StandardScaler()
+
 x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, 
                                                     shuffle=True, stratify=y, random_state=29)
+
+x_train = scaler.fit_transform(x_train.reshape(-1, 5)).reshape(x_train.shape).reshape(44, 1, 60, 5)
+x_test = scaler.transform(x_test.reshape(-1, 5)).reshape(x_test.shape).reshape(11, 1, 60, 5)
 
 train_dataset = [(torch.from_numpy(x_train[i]).double(), torch.tensor(y_train[i], dtype=torch.long)) for i in range(len(y_train))]
 test_dataset = [(torch.from_numpy(x_test[i]).double(), torch.tensor(y_test[i], dtype=torch.long)) for i in range(len(y_test))]
@@ -102,10 +109,10 @@ model = ClassificationNet(embedding_net, n_classes=n_classes).double()
 if cuda:
     model.cuda()
 loss_fn = torch.nn.NLLLoss()
-lr = 1e-2
+lr = 1e-3
 optimizer = optim.Adam(model.parameters(), lr=lr)
 scheduler = lr_scheduler.StepLR(optimizer, 8, gamma=0.1, last_epoch=-1)
-n_epochs = 20
+n_epochs = 50
 log_interval = 50
 
 fit(train_loader, test_loader, model, loss_fn, optimizer, scheduler, n_epochs, cuda, log_interval,
@@ -142,7 +149,7 @@ loss_fn = ContrastiveLoss(margin)
 lr = 1e-3
 optimizer = optim.Adam(model.parameters(), lr=lr)
 scheduler = lr_scheduler.StepLR(optimizer, 8, gamma=0.1, last_epoch=-1)
-n_epochs = 20
+n_epochs = 50
 log_interval = 100
 
 fit(siamese_train_loader, siamese_test_loader, model,
@@ -179,7 +186,7 @@ loss_fn = TripletLoss(margin)
 lr = 1e-3
 optimizer = optim.Adam(model.parameters(), lr=lr)
 scheduler = lr_scheduler.StepLR(optimizer, 8, gamma=0.1, last_epoch=-1)
-n_epochs = 5
+n_epochs = 50
 log_interval = 100
 
 fit(triplet_train_loader, triplet_test_loader, model,
@@ -218,7 +225,7 @@ loss_fn = OnlineContrastiveLoss(margin, HardNegativePairSelector())
 lr = 1e-3
 optimizer = optim.Adam(model.parameters(), lr=lr)
 scheduler = lr_scheduler.StepLR(optimizer, 8, gamma=0.1, last_epoch=-1)
-n_epochs = 20
+n_epochs = 50
 log_interval = 50
 
 fit(online_train_loader, online_test_loader, model,
@@ -250,7 +257,7 @@ online_train_loader = torch.utils.data.DataLoader(train_dataset, batch_sampler=t
 online_test_loader = torch.utils.data.DataLoader(test_dataset, batch_sampler=test_batch_sampler, **kwargs)
 
 # Set up the network and training parameters
-margin = 1.
+margin = 0.01
 embedding_net = EmbeddingNet().double()
 model = embedding_net.double()
 if cuda:
